@@ -11,7 +11,7 @@ class OllamaManager:
 
     def list_models(self):
         models = ollama.list()
-        pprint.pprint(models)
+        #pprint.pprint(models)
         return models
 
     def show_models(self, model):
@@ -76,12 +76,12 @@ class OllamaManager:
             async for chunk in response:
                 content = chunk['message']['content']
                 if content:
-                    print(content, end="")  # Print each piece of content without a new line
-                    response_content += content  # Optionally accumulate if needed elsewhere
+                    print(content, end="")
+                    response_content += content
         else:
             response_content = await response['message']['content']
-            print(response_content)  # Print the whole response if not streaming
-        return response_content  # Optionally return the complete response for further use
+            print(response_content)
+        return response_content
 
     async def ollama_param_call(self, params):
         model = params.get('model', 'llama3')
@@ -169,11 +169,39 @@ class OllamaManager:
 
         if task == "dynamic_call":
             return asyncio.run(self.ollama_ai_call(system_message=system_message, user_message=user_message, model=model, stream=stream))
+        elif task == "custom_client":
+            return self.custom_ollama_client(host=host, system_message=system_message, user_message=user_message, model=model, stream=stream)
+        else:
+            return "No task found"
+
+
+def check_model_pull_and_call(model, user_message, stream=True, task="dynamic_call"):
+    ollama_manager = OllamaManager()
+
+    # Fetching the list of models
+    all_models = ollama_manager.list_models()
+
+    # Extracting the 'models' list from the dictionary
+    model_list = all_models.get('models', [])
+
+    # Searching for the model in the list
+    model_found = any(m['name'] == model for m in model_list)
+
+    # If the model is not found, pull it
+    if not model_found:
+        ollama_manager.pull_model(model)
+
+    # Once the model is guaranteed to be available, perform the chat
+    response = asyncio.run(ollama_manager.simple_chat(model=model, user_message=user_message, stream=stream))
+    print(response)
+
+    return response
 
 
 if __name__ == "__main__":
     all_models = ['llama3:instruct', 'llama3:latest', 'llama3:text', 'mistral:latest', 'phi3:instruct', 'phi3:latest', 'phi3:mini']
-    model = "phi3:mini"
+    task = "dynamic_call"
+    model = "wizardlm2"
     stream = True
     system_message = "You provide very long and detailed answers. When I ask you a question, make sure to consider what I might be asking and provide as much information as possible."
     user_message = "Tell me everything you know about the history of the United States."
@@ -184,6 +212,11 @@ if __name__ == "__main__":
         'role': 'user',
         'content': user_message
     }]
-    ollama_manager = OllamaManager()
+
+    response = check_model_pull_and_call(model, user_message, stream, task)
+
+    #ollama_manager = OllamaManager()
+    #models = ollama_manager.list_models()
+    #pprint.pprint(models)
     #ollama_manager.pull_model(model)
-    asyncio.run(ollama_manager.simple_chat(model=model, user_message=user_message, stream=stream))
+    #asyncio.run(ollama_manager.simple_chat(model=model, user_message=user_message, stream=stream))
