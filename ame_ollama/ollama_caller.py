@@ -7,7 +7,7 @@ import asyncio
 
 class OllamaManager:
     def __init__(self):
-        pass
+        self.async_client = AsyncClient()
 
     def list_models(self):
         models = ollama.list()
@@ -69,17 +69,19 @@ class OllamaManager:
             return response_content
 
     async def simple_chat(self, model, user_message, stream=True):
-        messages = [{
-            'role': 'user',
-            'content': user_message
-        }]
-        response = AsyncClient.chat(model=model, messages=messages, stream=stream)
+        messages = [{'role': 'user', 'content': user_message}]
+        response = await self.async_client.chat(model=model, messages=messages, stream=stream)
         if stream:
+            response_content = ""
             async for chunk in response:
-                yield chunk['message']['content']
+                content = chunk['message']['content']
+                if content:
+                    print(content, end="")  # Print each piece of content without a new line
+                    response_content += content  # Optionally accumulate if needed elsewhere
         else:
             response_content = await response['message']['content']
-            yield response_content
+            print(response_content)  # Print the whole response if not streaming
+        return response_content  # Optionally return the complete response for further use
 
     async def ollama_param_call(self, params):
         model = params.get('model', 'llama3')
@@ -182,7 +184,6 @@ if __name__ == "__main__":
         'role': 'user',
         'content': user_message
     }]
-
     ollama_manager = OllamaManager()
-    #ollama_manager.pull_model("neural-chat")
+    #ollama_manager.pull_model(model)
     asyncio.run(ollama_manager.simple_chat(model=model, user_message=user_message, stream=stream))
